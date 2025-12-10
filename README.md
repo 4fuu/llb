@@ -5,13 +5,13 @@ A context packaging format designed for LLMs.
 ## Installation
 
 ```bash
-pip install llb
+pip install llb_doc
 ```
 
 ## Quick Start
 
 ```python
-from llb import create_llb, parse_llb
+from llb_doc import create_llb, parse_llb
 
 doc = create_llb()
 
