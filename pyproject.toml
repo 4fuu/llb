@@ -1,5 +1,5 @@
 [project]
-name = "llb"
+name = "llb_doc"
 version = "0.1.0"
 description = "Large Language Blocks - A context packaging format for LLMs"
 readme = "README.md"
