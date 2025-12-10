@@ -1,23 +1,45 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .document import Document
 
 
-@dataclass
 class Block:
-    id: str
-    type: str
-    lang: str | None = None
-    meta: dict[str, str] = field(default_factory=dict)
-    content: str = ""
-
-    _doc: Document | None = field(default=None, repr=False, compare=False)
-
     _fields = frozenset({"id", "type", "lang", "meta", "content", "_doc"})
+
+    def __init__(
+        self,
+        id: str,
+        type: str,
+        lang: str | None = None,
+        meta: dict[str, str] | None = None,
+        content: str = "",
+        _doc: Document | None = None,
+        **kwargs: str,
+    ) -> None:
+        self.id = id
+        self.type = type
+        self.lang = lang
+        self.meta = meta if meta is not None else {}
+        self.content = content
+        self._doc = _doc
+        self.meta.update(kwargs)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Block):
+            return NotImplemented
+        return (
+            self.id == other.id
+            and self.type == other.type
+            and self.lang == other.lang
+            and self.meta == other.meta
+            and self.content == other.content
+        )
+
+    def __repr__(self) -> str:
+        return f"Block(id={self.id!r}, type={self.type!r}, lang={self.lang!r}, meta={self.meta!r}, content={self.content!r})"
 
     def __getattr__(self, name: str) -> str | None:
         if name.startswith("_"):

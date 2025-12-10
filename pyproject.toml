@@ -1,6 +1,6 @@
 [project]
 name = "llb_doc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Large Language Blocks - A context packaging format for LLMs"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -12,6 +12,5 @@ dependencies = []
 Homepage = "https://github.com/4fuu/llb"
 Repository = "https://github.com/4fuu/llb"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[dependency-groups]
+dev = ["pytest>=8.4.2"]
