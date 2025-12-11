@@ -54,7 +54,8 @@ def parse_llb(text: str) -> Document:
                 content="\n".join(content_lines).rstrip("\n"),
                 _doc=doc,
             )
-            doc._blocks.append(block)
+            doc._block_order.append(block_id)
+            doc._id_index[block_id] = block
         i += 1
 
     return doc

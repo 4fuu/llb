@@ -1,11 +1,20 @@
 from .cache import GeneratorCache, get_default_cache
-from .core import Block, Document, MetaRefreshMode, create_llb
+from .core import (
+    Block,
+    BlockNotFoundError,
+    Document,
+    DuplicateIDError,
+    MetaRefreshMode,
+    create_llb,
+)
 from .generators import meta_generator
 from .parser import parse_llb
 
 __all__ = [
     "Block",
+    "BlockNotFoundError",
     "Document",
+    "DuplicateIDError",
     "GeneratorCache",
     "MetaRefreshMode",
     "create_llb",

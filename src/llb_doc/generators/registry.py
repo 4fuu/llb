@@ -46,16 +46,16 @@ class GeneratorRegistry:
         await asyncio.gather(*[self.apply(b, force=force) for b in doc.blocks])
 
 
-_default_registry = GeneratorRegistry()
+META_KEY_ATTR = "__llb_meta_key__"
 
 
 def meta_generator(meta_key: str):
     def decorator(func: MetaGenerator) -> MetaGenerator:
-        _default_registry.register(meta_key, func)
+        setattr(func, META_KEY_ATTR, meta_key)
         return func
 
     return decorator
 
 
-def get_default_registry() -> GeneratorRegistry:
-    return _default_registry
+def get_meta_key(func: MetaGenerator) -> str | None:
+    return getattr(func, META_KEY_ATTR, None)
