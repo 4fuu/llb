@@ -10,5 +10,6 @@ wheels/
 .venv
 
 draft.md
+AGENTS.md
 
 test.py

@@ -102,6 +102,8 @@ class Document:
         self._id_index: dict[str, Block] = {}
         self._id_gen = IDGenerator()
         self._generator_registry: GeneratorRegistry = GeneratorRegistry()
+        self._prefix: str = ""
+        self._suffix: str = ""
         if generators:
             for gen in generators:
                 meta_key = get_meta_key(gen)
@@ -111,10 +113,30 @@ class Document:
                     )
                 self._generator_registry.register(meta_key, gen)
 
+    @property
+    def prefix(self) -> str:
+        return self._prefix
+
+    @prefix.setter
+    def prefix(self, value: str) -> None:
+        self._prefix = value
+
+    @property
+    def suffix(self) -> str:
+        return self._suffix
+
+    @suffix.setter
+    def suffix(self, value: str) -> None:
+        self._suffix = value
+
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Document):
             return NotImplemented
-        return self.blocks == other.blocks
+        return (
+            self._prefix == other._prefix
+            and self._suffix == other._suffix
+            and self.blocks == other.blocks
+        )
 
     def __len__(self) -> int:
         return len(self._block_order)
@@ -270,7 +292,16 @@ class Document:
             asyncio.run(self.ensure_meta(force=force))
 
         rendered_blocks = [self._id_index[id_].render() for id_ in self._block_order]
-        return "\n\n".join(rendered_blocks)
+        body = "\n\n".join(rendered_blocks)
+
+        parts: list[str] = []
+        if self._prefix:
+            parts.append(self._prefix)
+        if body:
+            parts.append(body)
+        if self._suffix:
+            parts.append(self._suffix)
+        return "\n\n".join(parts)
 
     async def ensure_meta(self, *, force: bool = False) -> None:
         await self._generator_registry.apply_all(self, force=force)

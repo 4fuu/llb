@@ -100,6 +100,71 @@ class TestRenderAndParse:
         assert isinstance(result, str)
 
 
+class TestPrefixSuffix:
+    def test_prefix_only(self):
+        doc = create_llb()
+        doc.prefix = "This is the prefix"
+        doc.add_block("test", "content")
+        rendered = doc.render()
+        assert rendered.startswith("This is the prefix")
+        parsed = parse_llb(rendered)
+        assert parsed.prefix == "This is the prefix"
+
+    def test_suffix_only(self):
+        doc = create_llb()
+        doc.suffix = "--- END ---"
+        doc.add_block("test", "content")
+        rendered = doc.render()
+        assert rendered.endswith("--- END ---")
+        parsed = parse_llb(rendered)
+        assert parsed.suffix == "--- END ---"
+
+    def test_prefix_and_suffix(self):
+        doc = create_llb()
+        doc.prefix = "Header text"
+        doc.suffix = "Footer text"
+        doc.add_block("test", "content")
+        rendered = doc.render()
+        parsed = parse_llb(rendered)
+        assert parsed.prefix == "Header text"
+        assert parsed.suffix == "Footer text"
+        assert len(parsed.blocks) == 1
+
+    def test_prefix_suffix_roundtrip(self):
+        doc = create_llb()
+        doc.prefix = "Multi\nline\nprefix"
+        doc.suffix = "Multi\nline\nsuffix"
+        doc.add_block("note", "content", lang="en")
+        rendered = doc.render()
+        parsed = parse_llb(rendered)
+        assert parsed == doc
+
+    def test_empty_prefix_suffix(self):
+        doc = create_llb()
+        doc.add_block("test", "content")
+        assert doc.prefix == ""
+        assert doc.suffix == ""
+
+    def test_document_equality_with_prefix_suffix(self):
+        doc1 = create_llb()
+        doc1.prefix = "prefix"
+        doc1.suffix = "suffix"
+        doc1.add_block("test", "content")
+
+        doc2 = create_llb()
+        doc2.prefix = "prefix"
+        doc2.suffix = "suffix"
+        doc2.add_block("test", "content")
+
+        doc3 = create_llb()
+        doc3.prefix = "different"
+        doc3.suffix = "suffix"
+        doc3.add_block("test", "content")
+
+        assert doc1 == doc2
+        assert doc1 != doc3
+
+
 class TestEdgeCases:
     def test_special_characters_in_content(self):
         doc = create_llb()
