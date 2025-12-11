@@ -1,6 +1,8 @@
 """Tests for llb_doc library."""
 
-from llb_doc import Block, Document, create_llb, parse_llb
+import pytest
+
+from llb_doc import Block, Document, ParseError, create_llb, parse_llb
 
 
 class TestBlock:
@@ -139,6 +141,41 @@ class TestPrefixSuffix:
         parsed = parse_llb(rendered)
         assert parsed == doc
 
+    def test_prefix_with_whitespace_preserved(self):
+        """Whitespace in prefix/suffix should be preserved after roundtrip."""
+        doc = create_llb()
+        doc.prefix = "  indented prefix  "
+        doc.suffix = "  indented suffix  "
+        doc.add_block("test", "content")
+        parsed = parse_llb(doc.render())
+        assert parsed.prefix == doc.prefix
+        assert parsed.suffix == doc.suffix
+        assert parsed == doc
+
+    def test_complex_prefix_roundtrip(self):
+        """Complex multiline prefix with code blocks should roundtrip correctly."""
+        doc = create_llb()
+        doc.block("ticket", lang="en").meta(source="jira", priority="high").content(
+            "User cannot upload files larger than 10MB"
+        ).add()
+        with doc.block("api", "json") as b:
+            b.source = "storage_service"
+            b.content = '{"max_size": 5242880, "unit": "bytes"}'
+        doc.add_block("note", "前端限制与后端配置不一致", source="code_review", lang="zh")
+
+        doc.prefix = """Each block follows this structure:
+```
+@block <id> <type> [lang]
+key1=value1
+key2=value2
+
+<content>
+
+@end <id>
+```"""
+        parsed = parse_llb(doc.render())
+        assert parsed == doc
+
     def test_empty_prefix_suffix(self):
         doc = create_llb()
         doc.add_block("test", "content")
@@ -191,3 +228,30 @@ class TestEdgeCases:
             service="api",
         )
         assert len(doc.blocks[0].meta) == 3
+
+
+class TestParseError:
+    def test_missing_end_marker(self):
+        """Parser should raise ParseError when @end is missing."""
+        invalid_text = "@block b1 test\n\ncontent without end"
+        with pytest.raises(ParseError, match="Missing @end"):
+            parse_llb(invalid_text)
+
+    def test_invalid_block_start_in_body(self):
+        """Parser should raise ParseError for invalid lines in body section."""
+        invalid_text = "not a valid block line"
+        with pytest.raises(ParseError, match="Expected @block"):
+            parse_llb(invalid_text)
+
+    def test_too_many_separators(self):
+        """Parser should raise ParseError when more than 2 separators are present."""
+        invalid_text = "prefix\n\n---\n\n@block b1 test\n\ncontent\n\n@end b1\n\n---\n\nsuffix\n\n---\n\nextra"
+        with pytest.raises(ParseError, match="Too many separators"):
+            parse_llb(invalid_text)
+
+    def test_parse_error_includes_line_number(self):
+        """ParseError should include line number when available."""
+        invalid_text = "@block b1 test\n\ncontent\n\n@end b1\n\ninvalid line here"
+        with pytest.raises(ParseError) as exc_info:
+            parse_llb(invalid_text)
+        assert exc_info.value.line_number is not None

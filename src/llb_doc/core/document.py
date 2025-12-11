@@ -287,6 +287,7 @@ class Document:
         self._block_order = list(ids)
 
     def render(self, *, meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL) -> str:
+        """Render document to LLB format string."""
         if meta_refresh != MetaRefreshMode.NONE:
             force = meta_refresh == MetaRefreshMode.FORCE
             asyncio.run(self.ensure_meta(force=force))
@@ -297,9 +298,11 @@ class Document:
         parts: list[str] = []
         if self._prefix:
             parts.append(self._prefix)
+            parts.append("---")
         if body:
             parts.append(body)
         if self._suffix:
+            parts.append("---")
             parts.append(self._suffix)
         return "\n\n".join(parts)
 

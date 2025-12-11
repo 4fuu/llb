@@ -8,7 +8,7 @@ from .core import (
     create_llb,
 )
 from .generators import meta_generator
-from .parser import parse_llb
+from .parser import ParseError, parse_llb
 
 __all__ = [
     "Block",
@@ -17,6 +17,7 @@ __all__ = [
     "DuplicateIDError",
     "GeneratorCache",
     "MetaRefreshMode",
+    "ParseError",
     "create_llb",
     "get_default_cache",
     "meta_generator",

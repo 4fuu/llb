@@ -1,3 +1,3 @@
-from .parser import parse_llb
+from .parser import ParseError, parse_llb
 
-__all__ = ["parse_llb"]
+__all__ = ["ParseError", "parse_llb"]
