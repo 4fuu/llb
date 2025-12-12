@@ -243,11 +243,30 @@ class TestParseError:
         with pytest.raises(ParseError, match="Expected @block"):
             parse_llb(invalid_text)
 
-    def test_too_many_separators(self):
-        """Parser should raise ParseError when more than 2 separators are present."""
-        invalid_text = "prefix\n\n---\n\n@block b1 test\n\ncontent\n\n@end b1\n\n---\n\nsuffix\n\n---\n\nextra"
-        with pytest.raises(ParseError, match="Too many separators"):
-            parse_llb(invalid_text)
+    def test_multiple_separators_in_prefix_suffix(self):
+        """Parser should detect body boundaries even with extra separators."""
+        # Extra separators in prefix and suffix areas
+        text = "pre1\n---\npre2\n---\n@block b1 test\n\ncontent\n@end b1\n---\nsuf1\n---\nsuf2"
+        doc = parse_llb(text)
+        assert doc.prefix == "pre1\n---\npre2"
+        assert doc["b1"].content == "content"
+        assert doc.suffix == "suf1\n---\nsuf2"
+
+    def test_multiple_separators_prefix_body_only(self):
+        """Parser handles multiple separators with prefix+body (no suffix)."""
+        text = "pre1\n---\npre2\n---\n@block b1 test\n\ncontent\n@end b1"
+        doc = parse_llb(text)
+        assert doc.prefix == "pre1\n---\npre2"
+        assert doc["b1"].content == "content"
+        assert doc.suffix == ""
+
+    def test_multiple_separators_body_suffix_only(self):
+        """Parser handles multiple separators with body+suffix (no prefix)."""
+        text = "@block b1 test\n\ncontent\n@end b1\n---\nsuf1\n---\nsuf2"
+        doc = parse_llb(text)
+        assert doc.prefix == ""
+        assert doc["b1"].content == "content"
+        assert doc.suffix == "suf1\n---\nsuf2"
 
     def test_parse_error_includes_line_number(self):
         """ParseError should include line number when available."""

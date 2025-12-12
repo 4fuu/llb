@@ -34,43 +34,70 @@ def parse_llb(text: str) -> Document:
     # Find separator positions
     separator_indices = [i for i, line in enumerate(lines) if line == SEPARATOR]
 
-    # Determine prefix/body/suffix boundaries
-    # Separators explicitly mark boundaries, content before first separator is prefix
+    # Determine prefix/body/suffix boundaries based on content detection
+    # Find the last separator followed by @block (body start)
+    # Find the first separator preceded by @end (body end)
+    def find_first_nonblank_after(idx: int) -> str | None:
+        """Find first non-blank line after given index."""
+        for i in range(idx + 1, len(lines)):
+            if lines[i].strip():
+                return lines[i]
+        return None
+
+    def find_last_nonblank_before(idx: int) -> str | None:
+        """Find last non-blank line before given index."""
+        for i in range(idx - 1, -1, -1):
+            if lines[i].strip():
+                return lines[i]
+        return None
+
     if len(separator_indices) == 0:
-        # No separators: entire text is body (blocks only, legacy format)
+        # No separators: entire text is body (blocks only)
         prefix_end = 0
         body_start = 0
         body_end = len(lines)
         suffix_start = len(lines)
-    elif len(separator_indices) == 1:
-        # One separator: could be prefix---body or body---suffix
-        sep_idx = separator_indices[0]
-        # Check if there's a valid block AFTER the separator
-        has_block_after = any(
-            BLOCK_START_RE.match(lines[i]) for i in range(sep_idx + 1, len(lines))
-        )
-        if has_block_after:
-            # prefix---body
-            prefix_end = sep_idx
-            body_start = sep_idx + 1
+    else:
+        # Find last separator followed by @block (body start boundary)
+        body_start_sep = None
+        for sep_idx in reversed(separator_indices):
+            next_line = find_first_nonblank_after(sep_idx)
+            if next_line and BLOCK_START_RE.match(next_line):
+                body_start_sep = sep_idx
+                break
+
+        # Find first separator preceded by @end (body end boundary)
+        body_end_sep = None
+        for sep_idx in separator_indices:
+            prev_line = find_last_nonblank_before(sep_idx)
+            if prev_line and BLOCK_END_RE.match(prev_line):
+                body_end_sep = sep_idx
+                break
+
+        if body_start_sep is not None and body_end_sep is not None:
+            # prefix---body---suffix
+            prefix_end = body_start_sep
+            body_start = body_start_sep + 1
+            body_end = body_end_sep
+            suffix_start = body_end_sep + 1
+        elif body_start_sep is not None:
+            # prefix---body (no suffix)
+            prefix_end = body_start_sep
+            body_start = body_start_sep + 1
             body_end = len(lines)
             suffix_start = len(lines)
-        else:
-            # body---suffix
+        elif body_end_sep is not None:
+            # body---suffix (no prefix)
             prefix_end = 0
             body_start = 0
-            body_end = sep_idx
-            suffix_start = sep_idx + 1
-    elif len(separator_indices) == 2:
-        # Two separators: prefix---body---suffix
-        prefix_end = separator_indices[0]
-        body_start = separator_indices[0] + 1
-        body_end = separator_indices[1]
-        suffix_start = separator_indices[1] + 1
-    else:
-        raise ParseError(
-            f"Too many separators (---): expected at most 2, found {len(separator_indices)}"
-        )
+            body_end = body_end_sep
+            suffix_start = body_end_sep + 1
+        else:
+            # No valid boundaries found, treat entire content as body
+            prefix_end = 0
+            body_start = 0
+            body_end = len(lines)
+            suffix_start = len(lines)
 
     # Extract prefix
     if prefix_end > 0:

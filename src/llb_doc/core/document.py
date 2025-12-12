@@ -15,6 +15,19 @@ class MetaRefreshMode(Enum):
     FORCE = "force"
 
 
+DEFAULT_DOC_PREFIX = """# Document
+Each block follows this structure:
+```
+@block <id> <type> [lang]
+key1=value1
+key2=value2
+
+<content>
+
+@end <id>
+```"""
+
+
 class DuplicateIDError(ValueError):
     """Raised when attempting to add a block with a duplicate ID."""
 

@@ -2,6 +2,7 @@ from .cache import GeneratorCache, get_default_cache
 from .core import (
     Block,
     BlockNotFoundError,
+    DEFAULT_DOC_PREFIX,
     Document,
     DuplicateIDError,
     MetaRefreshMode,
@@ -13,6 +14,7 @@ from .parser import ParseError, parse_llb
 __all__ = [
     "Block",
     "BlockNotFoundError",
+    "DEFAULT_DOC_PREFIX",
     "Document",
     "DuplicateIDError",
     "GeneratorCache",
