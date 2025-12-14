@@ -88,13 +88,13 @@ class Block:
 
         lines: list[str] = [self.render_header()]
 
+        lines.extend(extra_meta)
+
         for key, value in self.meta.items():
             if "\n" in str(value):
                 lines.append(f'{key}="""{value}"""')
             else:
                 lines.append(f"{key}={value}")
-
-        lines.extend(extra_meta)
 
         if has_content:
             lines.append("")

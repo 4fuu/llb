@@ -35,7 +35,7 @@ class Edge(Block):
 
     def render_header(self) -> str:
         """Return @edge header line."""
-        parts = ["@edge", self.id, self.from_id, self.to_id, self.rel]
+        parts = ["@edge", self.id, self.from_id, "->", self.to_id, self.rel]
         if self.lang:
             parts.append(self.lang)
         return " ".join(parts)

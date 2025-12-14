@@ -217,7 +217,7 @@ class TestTiersString:
         g = create_graph()
         tiers = {"N1": 0, "N2": 1, "N3": 1}
         result = g._build_tiers_string(tiers)
-        assert "0:N1" in result
+        assert "0: N1" in result
         assert "1:" in result
         assert "N2" in result
         assert "N3" in result
@@ -226,10 +226,10 @@ class TestTiersString:
         g = create_graph()
         tiers = {"N3": 2, "N1": 0, "N2": 1}
         result = g._build_tiers_string(tiers)
-        parts = result.split(";")
-        assert parts[0].startswith("0:")
-        assert parts[1].startswith("1:")
-        assert parts[2].startswith("2:")
+        lines = result.split("\n")
+        assert lines[0].startswith("0:")
+        assert lines[1].startswith("1:")
+        assert lines[2].startswith("2:")
 
 
 class TestGraphRender:
@@ -243,7 +243,7 @@ class TestGraphRender:
         output = g.render()
         assert "@node N1 person" in output
         assert "@node N2 person" in output
-        assert "@edge E1 N1 N2 knows" in output
+        assert "@edge E1 N1 -> N2 knows" in output
 
     def test_render_with_focus(self):
         g = create_graph()
@@ -317,7 +317,7 @@ class TestGraphRenderAsync:
         output = await g.arender()
         assert "@node N1 person" in output
         assert "@node N2 person" in output
-        assert "@edge E1 N1 N2 knows" in output
+        assert "@edge E1 N1 -> N2 knows" in output
 
     @pytest.mark.asyncio
     async def test_render_async_with_focus(self):
@@ -412,16 +412,16 @@ class TestEdge:
 
     def test_render_header(self) -> None:
         edge = Edge(id="E1", from_id="N1", to_id="N2", rel="knows")
-        assert edge.render_header() == "@edge E1 N1 N2 knows"
+        assert edge.render_header() == "@edge E1 N1 -> N2 knows"
 
     def test_render_header_with_lang(self) -> None:
         edge = Edge(id="E2", from_id="N1", to_id="N2", rel="refs", lang="json")
-        assert edge.render_header() == "@edge E2 N1 N2 refs json"
+        assert edge.render_header() == "@edge E2 N1 -> N2 refs json"
 
     def test_render_full(self) -> None:
         edge = Edge(id="E1", from_id="N1", to_id="N2", rel="knows", content="since 2020")
         result = edge.render()
-        assert "@edge E1 N1 N2 knows" in result
+        assert "@edge E1 N1 -> N2 knows" in result
         assert "since 2020" in result
         assert "@end E1" in result
 

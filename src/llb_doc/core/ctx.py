@@ -47,7 +47,10 @@ class Ctx(Block):
         if self.strategy is not None:
             lines.append(f"strategy={self.strategy}")
         if self.tiers is not None:
-            lines.append(f"tiers={self.tiers}")
+            if "\n" in self.tiers:
+                lines.append(f'tiers="""\n{self.tiers}\n"""')
+            else:
+                lines.append(f"tiers={self.tiers}")
         return lines
 
     def __repr__(self) -> str:

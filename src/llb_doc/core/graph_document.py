@@ -494,18 +494,18 @@ class GraphDocument(Document):
                 to_node.in_edges.append(f"{edge.from_id}:{edge.rel}")
 
     def _build_tiers_string(self, tiers: dict[str, int]) -> str:
-        """Build tiers string like '0:N42;1:N10,N50'."""
+        """Build multiline tiers string like '0: N42\\n1: N10, N50'."""
         tier_groups: dict[int, list[str]] = {}
         for node_id, tier in tiers.items():
             if tier not in tier_groups:
                 tier_groups[tier] = []
             tier_groups[tier].append(node_id)
 
-        parts = []
+        lines = []
         for tier in sorted(tier_groups.keys()):
-            nodes = ",".join(sorted(tier_groups[tier]))
-            parts.append(f"{tier}:{nodes}")
-        return ";".join(parts)
+            nodes = ", ".join(sorted(tier_groups[tier]))
+            lines.append(f"{tier}: {nodes}")
+        return "\n".join(lines)
 
     def _render_graph_body(
         self,
