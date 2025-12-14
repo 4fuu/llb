@@ -1,6 +1,13 @@
 # LLB (Large Language Blocks)
 
-A context packaging format designed for LLMs.
+A Python library for generating LLM-readable structured context.
+
+## Why LLB?
+
+Serialize Python objects (especially graphs) into LLM-friendly text:
+
+- **Graph Mode**: Nodes + edges with focus/radius context pruning
+- **Flat Mode**: Simple independent block packaging
 
 ## Installation
 
