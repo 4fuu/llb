@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from typing import Self
 
@@ -440,6 +441,13 @@ class GraphDocument(Document):
         edge._doc = None
         return edge
 
+    async def ensure_meta(self, *, force: bool = False) -> None:
+        """Apply generators to all nodes and edges."""
+        all_blocks: list[Block] = list(self.nodes) + list(self.edges)
+        await asyncio.gather(
+            *[self._generator_registry.apply(b, force=force) for b in all_blocks]
+        )
+
     def _compute_tiers(
         self, focus: str, radius: int, strategy: str = "bfs"
     ) -> dict[str, int]:
@@ -509,8 +517,12 @@ class GraphDocument(Document):
         meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
     ) -> str:
         """Render graph document with context."""
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            asyncio.run(self.ensure_meta(force=force))
+
         if focus is None:
-            return self._render_all_nodes(order=order, meta_refresh=meta_refresh)
+            return self._render_all_nodes(order=order)
 
         tiers = self._compute_tiers(focus, radius, strategy)
         included_nodes = set(tiers.keys())
@@ -565,7 +577,6 @@ class GraphDocument(Document):
         self,
         *,
         order: str | None = None,
-        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
     ) -> str:
         """Render all nodes without focus/radius filtering."""
         all_node_ids = set(self._node_order)
