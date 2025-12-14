@@ -272,6 +272,7 @@ python demo.py
 - [x] Graph Mode (`@ctx`, `@node`, `@edge`)
 - [x] BFS tier computation with focus/radius
 - [x] Preset graph sorters (focus_last, focus_first, tier_asc, tier_desc)
+- [ ] Path queries (shortest_path, all_paths, render_path)
 - [ ] Parser support for graph mode
 
 ## License
