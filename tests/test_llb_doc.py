@@ -3,6 +3,7 @@
 import pytest
 
 from llb_doc import Block, Document, ParseError, create_llb, parse_llb
+from llb_doc.core.document import BlockNotFoundError, DuplicateIDError, MetaRefreshMode
 
 
 class TestBlock:
@@ -274,3 +275,119 @@ class TestParseError:
         with pytest.raises(ParseError) as exc_info:
             parse_llb(invalid_text)
         assert exc_info.value.line_number is not None
+
+
+class TestDocumentOperations:
+    """Test Document dunder methods and operations."""
+
+    def test_document_len(self):
+        doc = create_llb()
+        assert len(doc) == 0
+        doc.add_block("note", "content1")
+        assert len(doc) == 1
+        doc.add_block("note", "content2")
+        assert len(doc) == 2
+
+    def test_document_contains(self):
+        doc = create_llb()
+        doc.add_block("note", "content", id_="b1")
+        assert "b1" in doc
+        assert "b2" not in doc
+
+    def test_document_iter(self):
+        doc = create_llb()
+        doc.add_block("note", "content1", id_="b1")
+        doc.add_block("note", "content2", id_="b2")
+        blocks = list(doc)
+        assert len(blocks) == 2
+        assert blocks[0].id == "b1"
+        assert blocks[1].id == "b2"
+
+    def test_replace_block(self):
+        doc = create_llb()
+        doc.add_block("note", "old content", id_="b1", author="alice")
+        doc.replace_block("b1", content="new content", status="done")
+        block = doc["b1"]
+        assert block.content == "new content"
+        assert block.type == "note"
+        assert block.meta["author"] == "alice"
+        assert block.meta["status"] == "done"
+
+    def test_replace_block_not_found(self):
+        doc = create_llb()
+        with pytest.raises(BlockNotFoundError):
+            doc.replace_block("nonexistent", content="new")
+
+    def test_set_block_create_new(self):
+        doc = create_llb()
+        block = doc.set_block("b1", "note", "content", author="bob")
+        assert block.id == "b1"
+        assert block.type == "note"
+        assert block.content == "content"
+        assert block.meta["author"] == "bob"
+
+    def test_set_block_overwrite_existing(self):
+        doc = create_llb()
+        doc.add_block("note", "old", id_="b1", old_meta="value")
+        doc.set_block("b1", "ticket", "new", new_meta="new_value")
+        block = doc["b1"]
+        assert block.type == "ticket"
+        assert block.content == "new"
+        assert "old_meta" not in block.meta
+        assert block.meta["new_meta"] == "new_value"
+
+    def test_reorder_blocks(self):
+        doc = create_llb()
+        doc.add_block("note", "c1", id_="b1")
+        doc.add_block("note", "c2", id_="b2")
+        doc.add_block("note", "c3", id_="b3")
+        doc.reorder_blocks(["b3", "b1", "b2"])
+        blocks = doc.blocks
+        assert blocks[0].id == "b3"
+        assert blocks[1].id == "b1"
+        assert blocks[2].id == "b2"
+
+    def test_reorder_blocks_missing_id(self):
+        doc = create_llb()
+        doc.add_block("note", "c1", id_="b1")
+        doc.add_block("note", "c2", id_="b2")
+        with pytest.raises(ValueError, match="Missing block IDs"):
+            doc.reorder_blocks(["b1"])
+
+    def test_reorder_blocks_extra_id(self):
+        doc = create_llb()
+        doc.add_block("note", "c1", id_="b1")
+        with pytest.raises(BlockNotFoundError):
+            doc.reorder_blocks(["b1", "b2"])
+
+
+class TestDuplicateIDError:
+    """Test DuplicateIDError in Document."""
+
+    def test_duplicate_id_raises_error(self):
+        doc = create_llb()
+        doc.add_block("note", "content", id_="b1")
+        with pytest.raises(DuplicateIDError):
+            doc.add_block("note", "content2", id_="b1")
+
+    def test_duplicate_id_error_message(self):
+        doc = create_llb()
+        doc.add_block("note", "content", id_="test_id")
+        with pytest.raises(DuplicateIDError) as exc_info:
+            doc.add_block("note", "content2", id_="test_id")
+        assert "test_id" in str(exc_info.value)
+
+
+class TestMetaRefreshMode:
+    """Test MetaRefreshMode enum values."""
+
+    def test_meta_refresh_mode_values(self):
+        assert MetaRefreshMode.NONE.value == "none"
+        assert MetaRefreshMode.NORMAL.value == "normal"
+        assert MetaRefreshMode.FORCE.value == "force"
+
+    def test_render_with_meta_refresh_none(self):
+        doc = create_llb()
+        doc.add_block("note", "content")
+        result = doc.render(meta_refresh=MetaRefreshMode.NONE)
+        assert isinstance(result, str)

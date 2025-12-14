@@ -47,7 +47,7 @@ class Block:
         return self.meta.get(name)
 
     def __setattr__(self, name: str, value: str) -> None:
-        if name in Block._fields:
+        if name in self._fields:
             object.__setattr__(self, name, value)
         else:
             self.meta[name] = value
@@ -62,13 +62,31 @@ class Block:
         else:
             raise AttributeError(name)
 
-    def render(self) -> str:
-        lines: list[str] = []
-
-        header_parts = ["@block", self.id, self.type]
+    def render_header(self) -> str:
+        """Return header line, subclass can override to generate different marker."""
+        parts = ["@block", self.id, self.type]
         if self.lang:
-            header_parts.append(self.lang)
-        lines.append(" ".join(header_parts))
+            parts.append(self.lang)
+        return " ".join(parts)
+
+    def render_end(self) -> str:
+        """Return end marker line, subclass can override."""
+        return f"@end {self.id}"
+
+    def render_meta(self) -> list[str]:
+        """Return extra meta lines, subclass can override to add fields."""
+        return []
+
+    def render(self) -> str:
+        """Render block to LLB format string."""
+        extra_meta = self.render_meta()
+        has_meta = bool(self.meta) or bool(extra_meta)
+        has_content = bool(self.content)
+
+        if not has_meta and not has_content:
+            return f"{self.render_header()} @end"
+
+        lines: list[str] = [self.render_header()]
 
         for key, value in self.meta.items():
             if "\n" in str(value):
@@ -76,11 +94,13 @@ class Block:
             else:
                 lines.append(f"{key}={value}")
 
-        lines.append("")
-        if self.content:
-            lines.append(self.content)
-        lines.append("")
+        lines.extend(extra_meta)
 
-        lines.append(f"@end {self.id}")
+        if has_content:
+            lines.append("")
+            lines.append(self.content)
+            lines.append("")
+
+        lines.append(self.render_end())
 
         return "\n".join(lines)

@@ -31,6 +31,9 @@ class GeneratorCache:
     def __len__(self) -> int:
         return len(self._cache)
 
+    def __bool__(self) -> bool:
+        return True
+
 
 _default_cache = GeneratorCache()
 

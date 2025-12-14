@@ -7,6 +7,7 @@ from typing import Self
 from .block import Block
 
 from ..generators.registry import GeneratorRegistry, MetaGenerator, get_meta_key
+from ..sorters.registry import BlockSorter, SorterRegistry, get_sorter_name
 
 
 class MetaRefreshMode(Enum):
@@ -45,7 +46,7 @@ class BlockNotFoundError(KeyError):
 
 
 class IDGenerator:
-    def __init__(self, prefix: str = "b") -> None:
+    def __init__(self, prefix: str = "B") -> None:
         self._prefix = prefix
         self._counter = 0
 
@@ -110,11 +111,16 @@ class BlockBuilder:
 
 
 class Document:
-    def __init__(self, generators: list[MetaGenerator] | None = None) -> None:
+    def __init__(
+        self,
+        generators: list[MetaGenerator] | None = None,
+        sorters: list[BlockSorter] | None = None,
+    ) -> None:
         self._block_order: list[str] = []
         self._id_index: dict[str, Block] = {}
         self._id_gen = IDGenerator()
         self._generator_registry: GeneratorRegistry = GeneratorRegistry()
+        self._sorter_registry: SorterRegistry = SorterRegistry()
         self._prefix: str = ""
         self._suffix: str = ""
         if generators:
@@ -125,6 +131,14 @@ class Document:
                         f"Function {gen.__name__} is not decorated with @meta_generator"
                     )
                 self._generator_registry.register(meta_key, gen)
+        if sorters:
+            for sorter in sorters:
+                sorter_name = get_sorter_name(sorter)
+                if sorter_name is None:
+                    raise ValueError(
+                        f"Function {sorter.__name__} is not decorated with @block_sorter"
+                    )
+                self._sorter_registry.register(sorter_name, sorter)
 
     @property
     def prefix(self) -> str:
@@ -299,13 +313,22 @@ class Document:
                 raise BlockNotFoundError(list(extra)[0])
         self._block_order = list(ids)
 
-    def render(self, *, meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL) -> str:
+    def render(
+        self,
+        *,
+        order: str | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
         """Render document to LLB format string."""
         if meta_refresh != MetaRefreshMode.NONE:
             force = meta_refresh == MetaRefreshMode.FORCE
             asyncio.run(self.ensure_meta(force=force))
 
-        rendered_blocks = [self._id_index[id_].render() for id_ in self._block_order]
+        blocks = self.blocks
+        if order is not None:
+            blocks = self._sorter_registry.apply(blocks, order)
+
+        rendered_blocks = [b.render() for b in blocks]
         body = "\n\n".join(rendered_blocks)
 
         parts: list[str] = []
@@ -323,5 +346,9 @@ class Document:
         await self._generator_registry.apply_all(self, force=force)
 
 
-def create_llb(*, generators: list[MetaGenerator] | None = None) -> Document:
-    return Document(generators)
+def create_llb(
+    *,
+    generators: list[MetaGenerator] | None = None,
+    sorters: list[BlockSorter] | None = None,
+) -> Document:
+    return Document(generators, sorters)

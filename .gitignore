@@ -9,7 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+# AI
 draft.md
 AGENTS.md
-
+plan/
 test.py
