@@ -180,7 +180,9 @@ def _focus_last_sort(blocks: list[Block]) -> list[Block]:
     result: list[Block] = []
     result.extend(ctx_blocks)
 
-    all_tiers = sorted(set(nodes_by_tier.keys()) | set(edges_by_tier.keys()), reverse=True)
+    all_tiers = sorted(
+        set(nodes_by_tier.keys()) | set(edges_by_tier.keys()), reverse=True
+    )
     for tier in all_tiers:
         if tier in nodes_by_tier:
             result.extend(nodes_by_tier[tier])
@@ -443,10 +445,10 @@ class GraphDocument(Document):
 
     async def ensure_meta(self, *, force: bool = False) -> None:
         """Apply generators to all nodes and edges."""
-        all_blocks: list[Block] = list(self.nodes) + list(self.edges)
-        await asyncio.gather(
-            *[self._generator_registry.apply(b, force=force) for b in all_blocks]
-        )
+        all_blocks = list(self.nodes) + list(self.edges)
+        await asyncio.gather(*[
+            self._generator_registry.apply(b, force=force) for b in all_blocks
+        ])
 
     def _compute_tiers(
         self, focus: str, radius: int, strategy: str = "bfs"
@@ -505,7 +507,7 @@ class GraphDocument(Document):
             parts.append(f"{tier}:{nodes}")
         return ";".join(parts)
 
-    def render(
+    def _render_graph_body(
         self,
         *,
         focus: str | None = None,
@@ -514,13 +516,8 @@ class GraphDocument(Document):
         order: str | None = "focus_last",
         ctx_content: str = "",
         ctx_meta: dict[str, str] | None = None,
-        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
     ) -> str:
-        """Render graph document with context."""
-        if meta_refresh != MetaRefreshMode.NONE:
-            force = meta_refresh == MetaRefreshMode.FORCE
-            asyncio.run(self.ensure_meta(force=force))
-
+        """Build rendered graph document body."""
         if focus is None:
             return self._render_all_nodes(order=order)
 
@@ -572,6 +569,54 @@ class GraphDocument(Document):
             parts.append("---")
             parts.append(self._suffix)
         return "\n\n".join(parts)
+
+    def render(
+        self,
+        *,
+        focus: str | None = None,
+        radius: int = 1,
+        strategy: str = "bfs",
+        order: str | None = "focus_last",
+        ctx_content: str = "",
+        ctx_meta: dict[str, str] | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
+        """Render graph document with context (sync version)."""
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            asyncio.run(self.ensure_meta(force=force))
+        return self._render_graph_body(
+            focus=focus,
+            radius=radius,
+            strategy=strategy,
+            order=order,
+            ctx_content=ctx_content,
+            ctx_meta=ctx_meta,
+        )
+
+    async def arender(
+        self,
+        *,
+        focus: str | None = None,
+        radius: int = 1,
+        strategy: str = "bfs",
+        order: str | None = "focus_last",
+        ctx_content: str = "",
+        ctx_meta: dict[str, str] | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
+        """Async version of render()."""
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            await self.ensure_meta(force=force)
+        return self._render_graph_body(
+            focus=focus,
+            radius=radius,
+            strategy=strategy,
+            order=order,
+            ctx_content=ctx_content,
+            ctx_meta=ctx_meta,
+        )
 
     def _render_all_nodes(
         self,

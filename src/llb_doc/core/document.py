@@ -313,17 +313,8 @@ class Document:
                 raise BlockNotFoundError(list(extra)[0])
         self._block_order = list(ids)
 
-    def render(
-        self,
-        *,
-        order: str | None = None,
-        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
-    ) -> str:
-        """Render document to LLB format string."""
-        if meta_refresh != MetaRefreshMode.NONE:
-            force = meta_refresh == MetaRefreshMode.FORCE
-            asyncio.run(self.ensure_meta(force=force))
-
+    def _render_body(self, *, order: str | None = None) -> str:
+        """Build rendered document body."""
         blocks = self.blocks
         if order is not None:
             blocks = self._sorter_registry.apply(blocks, order)
@@ -342,7 +333,32 @@ class Document:
             parts.append(self._suffix)
         return "\n\n".join(parts)
 
+    def render(
+        self,
+        *,
+        order: str | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
+        """Render document to LLB format string (sync version)."""
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            asyncio.run(self.ensure_meta(force=force))
+        return self._render_body(order=order)
+
+    async def arender(
+        self,
+        *,
+        order: str | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
+        """Async version of render()."""
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            await self.ensure_meta(force=force)
+        return self._render_body(order=order)
+
     async def ensure_meta(self, *, force: bool = False) -> None:
+        """Apply generators to all blocks."""
         await self._generator_registry.apply_all(self, force=force)
 
 

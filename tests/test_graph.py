@@ -305,6 +305,32 @@ class TestGraphRender:
         assert output.endswith("# End")
 
 
+class TestGraphRenderAsync:
+    """Test async graph rendering."""
+
+    @pytest.mark.asyncio
+    async def test_render_async_without_focus(self):
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+        g.add_node("person", "Bob", id_="N2")
+        g.add_edge("N1", "N2", "knows")
+        output = await g.arender()
+        assert "@node N1 person" in output
+        assert "@node N2 person" in output
+        assert "@edge E1 N1 N2 knows" in output
+
+    @pytest.mark.asyncio
+    async def test_render_async_with_focus(self):
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+        g.add_node("person", "Bob", id_="N2")
+        g.add_edge("N1", "N2", "knows")
+        output = await g.arender(focus="N1", radius=1)
+        assert "@ctx" in output
+        assert "@node N1 person" in output
+        assert "@node N2 person" in output
+
+
 class TestSorterStrategies:
     """Test different sorting strategies."""
 

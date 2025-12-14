@@ -102,6 +102,22 @@ class TestRenderAndParse:
         result = doc.render()
         assert isinstance(result, str)
 
+    @pytest.mark.asyncio
+    async def test_arender_produces_string(self):
+        doc = create_llb()
+        doc.add_block("test", "content")
+        result = await doc.arender()
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+    @pytest.mark.asyncio
+    async def test_arender_matches_sync(self):
+        doc = create_llb()
+        doc.add_block("ticket", "User cannot login", lang="en")
+        sync_result = doc.render(meta_refresh=MetaRefreshMode.NONE)
+        async_result = await doc.arender(meta_refresh=MetaRefreshMode.NONE)
+        assert sync_result == async_result
+
 
 class TestPrefixSuffix:
     def test_prefix_only(self):
