@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from typing import Self
+from typing import Callable, Self, Sequence, Union
 
 from .block import Block
 from .ctx import Ctx
@@ -12,6 +12,12 @@ from .node import Node
 
 from ..generators.registry import MetaGenerator
 from ..sorters.registry import BlockSorter, block_sorter
+
+# Type for items in render_free: either a string ID or a tuple (ID, brief)
+ItemSpec = Union[str, tuple[str, bool]]
+
+# Type for custom brief renderer function
+BriefRenderer = Callable[[Block], str]
 
 
 class NodeNotFoundError(KeyError):
@@ -649,6 +655,147 @@ class GraphDocument(Document):
             parts.append("---")
             parts.append(self._suffix)
         return "\n\n".join(parts)
+
+    def render_free(
+        self,
+        items: Sequence[ItemSpec],
+        *,
+        ctx: dict[str, str | dict[str, str]] | Ctx | None = None,
+        brief_renderer: BriefRenderer | None = None,
+    ) -> str:
+        """Render graph in free mode with explicit control over nodes and edges.
+
+        Args:
+            items: Sequence of items to render, in order. Each item is either:
+                - A string ID (node or edge) for full rendering
+                - A tuple (ID, brief) where brief=True for brief rendering
+            ctx: Optional context block configuration:
+                - None: no context block
+                - Ctx object: use directly
+                - dict with keys:
+                    - "content": str (optional)
+                    - "meta": dict[str, str] (optional)
+                    - Any other keys are added to meta
+            brief_renderer: Optional custom function to render brief blocks.
+                If provided, called with the Block and should return the rendered string.
+                If None, uses Block.render_brief() (meta only, no content).
+
+        Returns:
+            Rendered graph document string.
+
+        Example:
+            output = g.render_free(
+                items=[
+                    "N1",           # full render
+                    ("N2", True),   # brief render
+                    "E1",           # full render
+                    ("E2", True),   # brief render
+                ],
+                ctx={
+                    "content": "Custom view",
+                    "meta": {"view": "neighborhood"},
+                },
+                brief_renderer=lambda b: f"[{b.type}] {b.id}",
+            )
+        """
+        # Parse items into (id, brief) tuples
+        parsed_items: list[tuple[str, bool]] = []
+        for item in items:
+            if isinstance(item, str):
+                parsed_items.append((item, False))
+            else:
+                parsed_items.append(item)
+
+        # Collect included node IDs for edge filling
+        included_node_ids: set[str] = set()
+        for item_id, _ in parsed_items:
+            if item_id in self._node_index:
+                included_node_ids.add(item_id)
+
+        # Fill in/out edges for included nodes
+        self._fill_in_out_edges(included_node_ids)
+
+        # Build rendered parts
+        rendered_parts: list[str] = []
+
+        # Render ctx first if provided
+        if ctx is not None:
+            if isinstance(ctx, Ctx):
+                rendered_parts.append(ctx.render())
+            else:
+                # Build Ctx from dict
+                ctx_content = ctx.get("content", "")
+                ctx_meta_dict = ctx.get("meta", {})
+                # Any other keys go into meta
+                extra_meta = {
+                    k: v for k, v in ctx.items()
+                    if k not in ("content", "meta") and isinstance(v, str)
+                }
+                if isinstance(ctx_meta_dict, dict):
+                    ctx_meta_dict = {**ctx_meta_dict, **extra_meta}
+                else:
+                    ctx_meta_dict = extra_meta
+
+                ctx_block = Ctx(
+                    id=self._generate_ctx_id(),
+                    content=str(ctx_content) if ctx_content else "",
+                    meta=ctx_meta_dict,
+                    _doc=self,
+                )
+                rendered_parts.append(ctx_block.render())
+
+        # Render items in order
+        for item_id, is_brief in parsed_items:
+            block: Block | None = None
+
+            # Try to find block (node or edge)
+            if item_id in self._node_index:
+                block = self._node_index[item_id]
+            elif item_id in self._edge_index:
+                block = self._edge_index[item_id]
+
+            if block is None:
+                continue
+
+            # Render the block
+            if is_brief:
+                if brief_renderer is not None:
+                    rendered_parts.append(brief_renderer(block))
+                else:
+                    rendered_parts.append(block.render_brief())
+            else:
+                rendered_parts.append(block.render())
+
+        body = "\n\n".join(rendered_parts)
+
+        # Apply prefix/suffix
+        parts: list[str] = []
+        if self._prefix:
+            parts.append(self._prefix)
+            parts.append("---")
+        if body:
+            parts.append(body)
+        if self._suffix:
+            parts.append("---")
+            parts.append(self._suffix)
+        return "\n\n".join(parts)
+
+    async def arender_free(
+        self,
+        items: Sequence[ItemSpec],
+        *,
+        ctx: dict[str, str | dict[str, str]] | Ctx | None = None,
+        brief_renderer: BriefRenderer | None = None,
+        meta_refresh: MetaRefreshMode = MetaRefreshMode.NORMAL,
+    ) -> str:
+        """Async version of render_free().
+
+        Same as render_free() but with async meta refresh support.
+        """
+        if meta_refresh != MetaRefreshMode.NONE:
+            force = meta_refresh == MetaRefreshMode.FORCE
+            await self.ensure_meta(force=force)
+        return self.render_free(items, ctx=ctx, brief_renderer=brief_renderer)
 
 
 def create_graph(

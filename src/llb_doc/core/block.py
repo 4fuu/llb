@@ -104,3 +104,25 @@ class Block:
         lines.append(self.render_end())
 
         return "\n".join(lines)
+
+    def render_brief(self) -> str:
+        """Render block in brief mode (meta only, no content)."""
+        extra_meta = self.render_meta()
+        has_meta = bool(self.meta) or bool(extra_meta)
+
+        if not has_meta:
+            return f"{self.render_header()} @end"
+
+        lines: list[str] = [self.render_header()]
+
+        lines.extend(extra_meta)
+
+        for key, value in self.meta.items():
+            if "\n" in str(value):
+                lines.append(f'{key}="""{value}"""')
+            else:
+                lines.append(f"{key}={value}")
+
+        lines.append(self.render_end())
+
+        return "\n".join(lines)
