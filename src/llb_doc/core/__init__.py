@@ -12,8 +12,10 @@ from .document import (
 )
 from .edge import Edge
 from .graph_document import (
+    BriefRenderer,
     EdgeBuilder,
     GraphDocument,
+    ItemSpec,
     NodeBuilder,
     NodeNotFoundError,
     create_graph,
@@ -24,6 +26,7 @@ __all__ = [
     "Block",
     "BlockBuilder",
     "BlockNotFoundError",
+    "BriefRenderer",
     "Ctx",
     "DEFAULT_DOC_PREFIX",
     "Document",
@@ -32,6 +35,7 @@ __all__ = [
     "EdgeBuilder",
     "GraphDocument",
     "IDGenerator",
+    "ItemSpec",
     "MetaRefreshMode",
     "Node",
     "NodeBuilder",

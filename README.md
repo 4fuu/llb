@@ -228,6 +228,47 @@ g.render(focus="p1", radius=2, order="tier_desc")    # By tier descending
 g.render()  # No @ctx block, shows all nodes and edges
 ```
 
+### Free Mode - Full Control
+
+For complex scenarios where you need explicit control over which nodes and edges to render:
+
+```python
+from llb_doc import create_graph, Ctx
+
+g = create_graph()
+g.add_node("person", "Alice's full bio...", id_="N1")
+g.add_node("person", "Bob's full bio...", id_="N2")
+g.add_node("person", "Carol's full bio...", id_="N3")
+g.add_edge("N1", "N2", "knows", id_="E1")
+g.add_edge("N2", "N3", "knows", id_="E2")
+
+# Render specific nodes/edges in exact order
+# Use tuple (id, True) for brief mode (meta only, no content)
+output = g.render_free(
+    items=[
+        "N1",           # full render
+        ("N2", True),   # brief render (no content)
+        "E1",           # full render
+    ],
+    ctx={
+        "content": "Custom neighborhood view",
+        "meta": {"view": "neighborhood", "roots": "N1"},
+    },
+)
+
+# Custom brief renderer
+output = g.render_free(
+    items=["N1", ("N2", True), ("N3", True)],
+    brief_renderer=lambda b: f"@{b.type} {b.id} [brief] @end",
+)
+```
+
+Free mode features:
+- **Explicit ordering**: Items render in the exact order you specify
+- **Brief mode**: Use `(id, True)` tuple to render only meta (no content)
+- **Custom brief renderer**: Pass a function to fully customize brief output
+- **Optional ctx**: Pass dict or Ctx object, automatically placed at top
+
 ## API Reference
 
 ### Main Functions
@@ -237,6 +278,15 @@ g.render()  # No @ctx block, shows all nodes and edges
 | `create_llb()` | Create a new Document for flat mode |
 | `create_graph()` | Create a new GraphDocument for graph mode |
 | `parse_llb(text)` | Parse LLB format text into Document |
+
+### GraphDocument Methods
+
+| Method | Description |
+|--------|-------------|
+| `render(focus, radius, ...)` | Render with BFS-based focus/radius filtering |
+| `render_free(items, ctx, brief_renderer)` | Render with explicit control over nodes/edges |
+| `add_node(type, content, ...)` | Add a node to the graph |
+| `add_edge(from_id, to_id, rel, ...)` | Add an edge between nodes |
 
 ### Decorators
 
@@ -256,6 +306,13 @@ g.render()  # No @ctx block, shows all nodes and edges
 | `Edge` | Graph edge (renders as `@edge`) |
 | `Ctx` | Graph context (renders as `@ctx`) |
 
+### Types
+
+| Type | Description |
+|------|-------------|
+| `ItemSpec` | `str \| tuple[str, bool]` - Item ID or (ID, brief) tuple |
+| `BriefRenderer` | `Callable[[Block], str]` - Custom brief render function |
+
 ## Demo
 
 Run the demo script to see all features in action:
@@ -263,17 +320,6 @@ Run the demo script to see all features in action:
 ```bash
 python demo.py
 ```
-
-## Roadmap
-
-- [x] Flat Mode (independent blocks)
-- [x] Custom meta generators
-- [x] Custom block sorters
-- [x] Graph Mode (`@ctx`, `@node`, `@edge`)
-- [x] BFS tier computation with focus/radius
-- [x] Preset graph sorters (focus_last, focus_first, tier_asc, tier_desc)
-- [ ] Path queries (shortest_path, all_paths, render_path)
-- [ ] Parser support for graph mode
 
 ## License
 

@@ -450,3 +450,310 @@ class TestCtx:
         assert ctx.radius == 2
         assert ctx.strategy == "bfs"
         assert ctx.tiers == "0:N42;1:N10"
+
+
+class TestRenderFree:
+    """Test render_free() free mode rendering."""
+
+    def test_render_free_basic(self):
+        """Test basic render_free with node IDs only."""
+        g = create_graph()
+        g.add_node("person", "Alice content", id_="N1")
+        g.add_node("person", "Bob content", id_="N2")
+        g.add_node("person", "Carol content", id_="N3")
+        g.add_edge("N1", "N2", "knows", id_="E1")
+        g.add_edge("N2", "N3", "knows", id_="E2")
+
+        output = g.render_free(items=["N1", "E1", "N2"])
+
+        assert "@node N1 person" in output
+        assert "@node N2 person" in output
+        assert "@edge E1 N1 -> N2 knows" in output
+        assert "Alice content" in output
+        assert "Bob content" in output
+        # N3 and E2 should not be in output
+        assert "@node N3" not in output
+        assert "@edge E2" not in output
+
+    def test_render_free_with_order(self):
+        """Test that render_free respects the order of items."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+        g.add_node("person", "Bob", id_="N2")
+        g.add_edge("N1", "N2", "knows", id_="E1")
+
+        output = g.render_free(items=["N2", "E1", "N1"])
+        lines = output.split("\n")
+
+        n1_idx = next(i for i, line in enumerate(lines) if "@node N1" in line)
+        n2_idx = next(i for i, line in enumerate(lines) if "@node N2" in line)
+        e1_idx = next(i for i, line in enumerate(lines) if "@edge E1" in line)
+
+        # Order should be N2 -> E1 -> N1
+        assert n2_idx < e1_idx < n1_idx
+
+    def test_render_free_with_brief(self):
+        """Test render_free with brief mode (tuple syntax)."""
+        g = create_graph()
+        g.add_node("person", "Alice long content here", id_="N1")
+        g.add_node("person", "Bob long content here", id_="N2")
+        g.add_edge("N1", "N2", "knows", id_="E1", content="Edge content")
+
+        output = g.render_free(items=[
+            "N1",           # full render
+            ("N2", True),   # brief render
+            ("E1", True),   # brief render
+        ])
+
+        # N1 should have full content
+        assert "Alice long content here" in output
+
+        # N2 should be brief (no content)
+        assert "@node N2 person" in output
+        assert "Bob long content here" not in output
+
+        # E1 should be brief (no content)
+        assert "@edge E1 N1 -> N2 knows" in output
+        assert "Edge content" not in output
+
+    def test_render_free_with_ctx_dict(self):
+        """Test render_free with ctx as dict."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        output = g.render_free(
+            items=["N1"],
+            ctx={
+                "content": "Custom context content",
+                "meta": {"view": "neighborhood", "roots": "N1"},
+            },
+        )
+
+        assert "@ctx" in output
+        assert "Custom context content" in output
+        assert "view=neighborhood" in output
+        assert "roots=N1" in output
+
+        # ctx should come before N1
+        lines = output.split("\n")
+        ctx_idx = next(i for i, line in enumerate(lines) if "@ctx" in line)
+        n1_idx = next(i for i, line in enumerate(lines) if "@node N1" in line)
+        assert ctx_idx < n1_idx
+
+    def test_render_free_with_ctx_object(self):
+        """Test render_free with ctx as Ctx object."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        ctx = Ctx(id="custom-ctx", content="My context", meta={"mode": "custom"})
+        output = g.render_free(items=["N1"], ctx=ctx)
+
+        assert "@ctx custom-ctx" in output
+        assert "My context" in output
+        assert "mode=custom" in output
+
+    def test_render_free_without_ctx(self):
+        """Test render_free without ctx (ctx=None)."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        output = g.render_free(items=["N1"], ctx=None)
+
+        assert "@ctx" not in output
+        assert "@node N1 person" in output
+
+    def test_render_free_with_custom_brief_renderer(self):
+        """Test render_free with custom brief_renderer function."""
+        g = create_graph()
+        g.add_node("person", "Alice content", id_="N1", name="Alice")
+        g.add_node("person", "Bob content", id_="N2", name="Bob")
+
+        def custom_brief(block):
+            return f"[{block.type}:{block.id}]"
+
+        output = g.render_free(
+            items=["N1", ("N2", True)],
+            brief_renderer=custom_brief,
+        )
+
+        # N1 should be full render
+        assert "@node N1 person" in output
+        assert "Alice content" in output
+
+        # N2 should use custom brief renderer
+        assert "[person:N2]" in output
+        assert "Bob content" not in output
+
+    def test_render_free_fills_in_out_edges(self):
+        """Test that render_free correctly fills in_edges and out_edges."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+        g.add_node("person", "Bob", id_="N2")
+        g.add_node("person", "Carol", id_="N3")
+        g.add_edge("N1", "N2", "knows")
+        g.add_edge("N2", "N3", "knows")
+
+        # Only include N1 and N2
+        output = g.render_free(items=["N1", "N2"])
+
+        # Check that in_edges/out_edges are filled correctly
+        assert "out_edges=['N2:knows']" in output
+        assert "in_edges=['N1:knows']" in output
+        # N3 is not included, so N2's out_edges to N3 should not appear
+        assert "N3:knows" not in output
+
+    def test_render_free_skips_unknown_ids(self):
+        """Test that render_free skips unknown IDs gracefully."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        # Include unknown ID - should be skipped
+        output = g.render_free(items=["N1", "UNKNOWN", "N999"])
+
+        assert "@node N1 person" in output
+        # No error, unknown IDs are just skipped
+
+    def test_render_free_with_prefix_suffix(self):
+        """Test that render_free respects prefix and suffix."""
+        g = create_graph()
+        g.prefix = "# Graph Start"
+        g.suffix = "# Graph End"
+        g.add_node("person", "Alice", id_="N1")
+
+        output = g.render_free(items=["N1"])
+
+        assert output.startswith("# Graph Start")
+        assert output.endswith("# Graph End")
+
+    def test_render_free_empty_items(self):
+        """Test render_free with empty items list."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        output = g.render_free(items=[])
+
+        # Should be empty (or just prefix/suffix if set)
+        assert "@node" not in output
+
+    def test_render_free_mixed_nodes_and_edges(self):
+        """Test render_free with mixed nodes and edges in various orders."""
+        g = create_graph()
+        g.add_node("person", "A", id_="N1")
+        g.add_node("person", "B", id_="N2")
+        g.add_node("person", "C", id_="N3")
+        g.add_edge("N1", "N2", "r1", id_="E1")
+        g.add_edge("N2", "N3", "r2", id_="E2")
+
+        output = g.render_free(items=["E1", "N2", "E2", "N1", "N3"])
+        lines = output.split("\n")
+
+        e1_idx = next(i for i, line in enumerate(lines) if "@edge E1" in line)
+        n2_idx = next(i for i, line in enumerate(lines) if "@node N2" in line)
+        e2_idx = next(i for i, line in enumerate(lines) if "@edge E2" in line)
+        n1_idx = next(i for i, line in enumerate(lines) if "@node N1" in line)
+        n3_idx = next(i for i, line in enumerate(lines) if "@node N3" in line)
+
+        assert e1_idx < n2_idx < e2_idx < n1_idx < n3_idx
+
+
+class TestRenderFreeAsync:
+    """Test async version of render_free."""
+
+    @pytest.mark.asyncio
+    async def test_arender_free_basic(self):
+        """Test basic async render_free."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+        g.add_node("person", "Bob", id_="N2")
+        g.add_edge("N1", "N2", "knows", id_="E1")
+
+        output = await g.arender_free(items=["N1", "E1", "N2"])
+
+        assert "@node N1 person" in output
+        assert "@node N2 person" in output
+        assert "@edge E1 N1 -> N2 knows" in output
+
+    @pytest.mark.asyncio
+    async def test_arender_free_with_ctx(self):
+        """Test async render_free with ctx."""
+        g = create_graph()
+        g.add_node("person", "Alice", id_="N1")
+
+        output = await g.arender_free(
+            items=["N1"],
+            ctx={"content": "Async context"},
+        )
+
+        assert "@ctx" in output
+        assert "Async context" in output
+
+
+class TestBlockRenderBrief:
+    """Test Block.render_brief() method."""
+
+    def test_node_render_brief(self):
+        """Test Node brief rendering (meta only, no content)."""
+        node = Node(id="N1", type="person", content="Long content here")
+        node.tier = 0
+        node.in_edges = ["N2:knows"]
+        node.out_edges = ["N3:likes"]
+        node.meta["name"] = "Alice"
+
+        result = node.render_brief()
+
+        assert "@node N1 person" in result
+        assert "tier=0" in result
+        assert "in_edges=['N2:knows']" in result
+        assert "out_edges=['N3:likes']" in result
+        assert "name=Alice" in result
+        assert "@end N1" in result
+        # Content should NOT be present
+        assert "Long content here" not in result
+
+    def test_edge_render_brief(self):
+        """Test Edge brief rendering (meta only, no content)."""
+        edge = Edge(
+            id="E1",
+            from_id="N1",
+            to_id="N2",
+            rel="knows",
+            content="Edge content here",
+            weight="5",
+        )
+
+        result = edge.render_brief()
+
+        assert "@edge E1 N1 -> N2 knows" in result
+        assert "weight=5" in result
+        assert "@end E1" in result
+        # Content should NOT be present
+        assert "Edge content here" not in result
+
+    def test_ctx_render_brief(self):
+        """Test Ctx brief rendering (meta only, no content)."""
+        ctx = Ctx(
+            id="C1",
+            content="Context content here",
+            focus="N1",
+            radius=2,
+        )
+        ctx.meta["mode"] = "custom"
+
+        result = ctx.render_brief()
+
+        assert "@ctx C1" in result
+        assert "focus=N1" in result
+        assert "radius=2" in result
+        assert "mode=custom" in result
+        assert "@end C1" in result
+        # Content should NOT be present
+        assert "Context content here" not in result
+
+    def test_render_brief_no_meta(self):
+        """Test brief rendering with no meta (should use short form)."""
+        from llb_doc.core.block import Block
+
+        block = Block(id="B1", type="test")
+        result = block.render_brief()
+
+        assert result == "@block B1 test @end"
